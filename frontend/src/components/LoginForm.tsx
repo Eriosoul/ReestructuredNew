@@ -38,6 +38,8 @@ export default function LoginForm() {
       toast.success('Login successful', {
         description: 'Welcome back to IntelOps Platform.',
       });
+      // Opcional: redirigir al dashboard
+      // window.location.href = '/dashboard';
     } catch (error) {
       toast.error('Login failed', {
         description: 'Invalid credentials. Please try again.',

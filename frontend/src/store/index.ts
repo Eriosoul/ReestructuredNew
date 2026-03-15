@@ -30,13 +30,32 @@ import type {
 } from '@/types';
 
 // ============================================
+// Configuración de la API
+// ============================================
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Helper para incluir el token JWT en las peticiones
+const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+  const token = useAuthStore.getState().token;
+  return fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+};
+
+// ============================================
 // AUTH STORE
 // ============================================
 interface AuthStore extends AuthState {
+  error?: string;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   register: (email: string, password: string, name: string) => Promise<void>;
-  updateUser: (user: Partial<User>) => void;
+  updateUser: (user: Partial<User>) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   setToken: (token: string) => void;
 }
@@ -48,28 +67,38 @@ export const useAuthStore = create<AuthStore>()(
       isAuthenticated: false,
       isLoading: false,
       token: undefined,
+      error: undefined,
 
       login: async (email: string, password: string) => {
         set((state) => {
           state.isLoading = true;
+          state.error = undefined;
         });
-        // Mock login - would call API
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        set((state) => {
-          state.user = {
-            id: '1',
-            email,
-            name: 'Admin User',
-            role: 'admin',
-            permissions: ['*'],
-            createdAt: new Date(),
-          };
-          state.isAuthenticated = true;
-          state.isLoading = false;
-        });
+        try {
+          const res = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Error al iniciar sesión');
+          set((state) => {
+            state.user = data.user;
+            state.token = data.token;
+            state.isAuthenticated = true;
+            state.isLoading = false;
+          });
+        } catch (error: any) {
+          set((state) => {
+            state.isLoading = false;
+            state.error = error.message;
+          });
+          throw error;
+        }
       },
 
       logout: () => {
+        // Opcional: llamar a un endpoint de logout si es necesario
         set((state) => {
           state.user = null;
           state.isAuthenticated = false;
@@ -80,33 +109,54 @@ export const useAuthStore = create<AuthStore>()(
       register: async (email: string, password: string, name: string) => {
         set((state) => {
           state.isLoading = true;
+          state.error = undefined;
         });
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        set((state) => {
-          state.user = {
-            id: '2',
-            email,
-            name,
-            role: 'analyst',
-            permissions: ['read', 'write'],
-            createdAt: new Date(),
-          };
-          state.isAuthenticated = true;
-          state.isLoading = false;
-        });
+        try {
+          const res = await fetch(`${API_BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, name }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Error al registrar');
+          set((state) => {
+            state.user = data.user;
+            state.token = data.token;
+            state.isAuthenticated = true;
+            state.isLoading = false;
+          });
+        } catch (error: any) {
+          set((state) => {
+            state.isLoading = false;
+            state.error = error.message;
+          });
+          throw error;
+        }
       },
 
-      updateUser: (userData: Partial<User>) => {
-        set((state) => {
-          if (state.user) {
-            Object.assign(state.user, userData);
-          }
-        });
+      updateUser: async (userData: Partial<User>) => {
+        try {
+          const res = await fetchWithAuth(`${API_BASE_URL}/auth/profile`, {
+            method: 'PUT',
+            body: JSON.stringify(userData),
+          });
+          const updatedUser = await res.json();
+          set((state) => {
+            if (state.user) {
+              Object.assign(state.user, updatedUser);
+            }
+          });
+        } catch (error) {
+          console.error('Error actualizando usuario:', error);
+        }
       },
 
       resetPassword: async (email: string) => {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        // Mock password reset
+        await fetch(`${API_BASE_URL}/auth/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
       },
 
       setToken: (token: string) => {
@@ -123,7 +173,7 @@ export const useAuthStore = create<AuthStore>()(
 );
 
 // ============================================
-// GLOBAL FILTERS STORE
+// GLOBAL FILTERS STORE (sin cambios, solo local)
 // ============================================
 interface FilterStore {
   filters: GlobalFilters;
@@ -263,10 +313,13 @@ interface MissionStore {
   missions: Mission[];
   activeMission: Mission | null;
   selectedMissions: string[];
-  setMissions: (missions: Mission[]) => void;
-  addMission: (mission: Mission) => void;
-  updateMission: (id: string, updates: Partial<Mission>) => void;
-  deleteMission: (id: string) => void;
+  isLoading: boolean;
+  error: string | null;
+  fetchMissions: (filters?: Record<string, any>) => Promise<void>;
+  fetchMissionById: (id: string) => Promise<void>;
+  createMission: (data: Partial<Mission>) => Promise<void>;
+  updateMission: (id: string, updates: Partial<Mission>) => Promise<void>;
+  deleteMission: (id: string) => Promise<void>;
   setActiveMission: (mission: Mission | null) => void;
   toggleMissionSelection: (id: string) => void;
   addActivityLog: (missionId: string, entry: ActivityLogEntry) => void;
@@ -274,39 +327,127 @@ interface MissionStore {
 }
 
 export const useMissionStore = create<MissionStore>()(
-  immer((set) => ({
+  immer((set, get) => ({
     missions: [],
     activeMission: null,
     selectedMissions: [],
+    isLoading: false,
+    error: null,
 
-    setMissions: (missions) => {
+    fetchMissions: async (filters = {}) => {
       set((state) => {
-        state.missions = missions;
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const query = new URLSearchParams(filters).toString();
+        const res = await fetchWithAuth(`${API_BASE_URL}/missions?${query}`);
+        if (!res.ok) throw new Error('Error al cargar misiones');
+        const data = await res.json();
+        set((state) => {
+          state.missions = data;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
-    addMission: (mission) => {
+    fetchMissionById: async (id) => {
       set((state) => {
-        state.missions.push(mission);
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/missions/${id}`);
+        if (!res.ok) throw new Error('Error al cargar la misión');
+        const data = await res.json();
+        set((state) => {
+          state.activeMission = data;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
-    updateMission: (id, updates) => {
+    createMission: async (data) => {
       set((state) => {
-        const mission = state.missions.find((m) => m.id === id);
-        if (mission) {
-          Object.assign(mission, updates, { updatedAt: new Date() });
-        }
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/missions`, {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Error al crear misión');
+        const newMission = await res.json();
+        set((state) => {
+          state.missions.push(newMission);
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
-    deleteMission: (id) => {
+    updateMission: async (id, updates) => {
       set((state) => {
-        state.missions = state.missions.filter((m) => m.id !== id);
-        if (state.activeMission?.id === id) {
-          state.activeMission = null;
-        }
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/missions/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(updates),
+        });
+        if (!res.ok) throw new Error('Error al actualizar misión');
+        const updated = await res.json();
+        set((state) => {
+          const index = state.missions.findIndex((m) => m.id === id);
+          if (index !== -1) state.missions[index] = updated;
+          if (state.activeMission?.id === id) state.activeMission = updated;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
+    },
+
+    deleteMission: async (id) => {
+      set((state) => {
+        state.isLoading = true;
+        state.error = null;
+      });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/missions/${id}`, {
+          method: 'DELETE',
+        });
+        if (!res.ok) throw new Error('Error al eliminar misión');
+        set((state) => {
+          state.missions = state.missions.filter((m) => m.id !== id);
+          if (state.activeMission?.id === id) state.activeMission = null;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
     setActiveMission: (mission) => {
@@ -327,6 +468,8 @@ export const useMissionStore = create<MissionStore>()(
     },
 
     addActivityLog: (missionId, entry) => {
+      // Podría llamar a un endpoint POST /missions/:id/activity-log
+      // Por ahora actualización optimista local
       set((state) => {
         const mission = state.missions.find((m) => m.id === missionId);
         if (mission) {
@@ -353,52 +496,143 @@ interface ObjectStore {
   objects: TargetObject[];
   selectedObject: TargetObject | null;
   watchlist: string[];
-  setObjects: (objects: TargetObject[]) => void;
-  addObject: (object: TargetObject) => void;
-  updateObject: (id: string, updates: Partial<TargetObject>) => void;
-  deleteObject: (id: string) => void;
+  isLoading: boolean;
+  error: string | null;
+  fetchObjects: (filters?: Record<string, any>) => Promise<void>;
+  fetchObjectById: (id: string) => Promise<void>;
+  createObject: (data: Partial<TargetObject>) => Promise<void>;
+  updateObject: (id: string, updates: Partial<TargetObject>) => Promise<void>;
+  deleteObject: (id: string) => Promise<void>;
   setSelectedObject: (object: TargetObject | null) => void;
-  addToWatchlist: (id: string) => void;
-  removeFromWatchlist: (id: string) => void;
-  addTimelineEvent: (objectId: string, event: any) => void;
+  addToWatchlist: (id: string) => Promise<void>;
+  removeFromWatchlist: (id: string) => Promise<void>;
+  addTimelineEvent: (objectId: string, event: any) => void; // Podría ser una llamada API
   addPrediction: (objectId: string, prediction: Prediction) => void;
   updateLastLocation: (objectId: string, location: any) => void;
 }
 
 export const useObjectStore = create<ObjectStore>()(
-  immer((set) => ({
+  immer((set, get) => ({
     objects: [],
     selectedObject: null,
     watchlist: [],
+    isLoading: false,
+    error: null,
 
-    setObjects: (objects) => {
+    fetchObjects: async (filters = {}) => {
       set((state) => {
-        state.objects = objects;
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const query = new URLSearchParams(filters).toString();
+        const res = await fetchWithAuth(`${API_BASE_URL}/objects?${query}`);
+        if (!res.ok) throw new Error('Error al cargar objetos');
+        const data = await res.json();
+        set((state) => {
+          state.objects = data;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
-    addObject: (object) => {
+    fetchObjectById: async (id) => {
       set((state) => {
-        state.objects.push(object);
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/objects/${id}`);
+        if (!res.ok) throw new Error('Error al cargar el objeto');
+        const data = await res.json();
+        set((state) => {
+          state.selectedObject = data;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
-    updateObject: (id, updates) => {
+    createObject: async (data) => {
       set((state) => {
-        const obj = state.objects.find((o) => o.id === id);
-        if (obj) {
-          Object.assign(obj, updates, { updatedAt: new Date() });
-        }
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/objects`, {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Error al crear objeto');
+        const newObj = await res.json();
+        set((state) => {
+          state.objects.push(newObj);
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
-    deleteObject: (id) => {
+    updateObject: async (id, updates) => {
       set((state) => {
-        state.objects = state.objects.filter((o) => o.id !== id);
-        if (state.selectedObject?.id === id) {
-          state.selectedObject = null;
-        }
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/objects/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(updates),
+        });
+        if (!res.ok) throw new Error('Error al actualizar objeto');
+        const updated = await res.json();
+        set((state) => {
+          const index = state.objects.findIndex((o) => o.id === id);
+          if (index !== -1) state.objects[index] = updated;
+          if (state.selectedObject?.id === id) state.selectedObject = updated;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
+    },
+
+    deleteObject: async (id) => {
+      set((state) => {
+        state.isLoading = true;
+        state.error = null;
+      });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/objects/${id}`, {
+          method: 'DELETE',
+        });
+        if (!res.ok) throw new Error('Error al eliminar objeto');
+        set((state) => {
+          state.objects = state.objects.filter((o) => o.id !== id);
+          if (state.selectedObject?.id === id) state.selectedObject = null;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
     setSelectedObject: (object) => {
@@ -407,29 +641,45 @@ export const useObjectStore = create<ObjectStore>()(
       });
     },
 
-    addToWatchlist: (id) => {
-      set((state) => {
-        if (!state.watchlist.includes(id)) {
-          state.watchlist.push(id);
-        }
-        const obj = state.objects.find((o) => o.id === id);
-        if (obj) {
-          obj.status = 'watchlisted';
-        }
-      });
+    addToWatchlist: async (id) => {
+      // Llamar a un endpoint para añadir a watchlist, por ejemplo POST /objects/:id/watch
+      try {
+        await fetchWithAuth(`${API_BASE_URL}/objects/${id}/watchlist`, {
+          method: 'POST',
+        });
+        set((state) => {
+          if (!state.watchlist.includes(id)) {
+            state.watchlist.push(id);
+          }
+          const obj = state.objects.find((o) => o.id === id);
+          if (obj) {
+            obj.status = 'watchlisted';
+          }
+        });
+      } catch (error) {
+        console.error('Error al añadir a watchlist', error);
+      }
     },
 
-    removeFromWatchlist: (id) => {
-      set((state) => {
-        state.watchlist = state.watchlist.filter((w) => w !== id);
-        const obj = state.objects.find((o) => o.id === id);
-        if (obj) {
-          obj.status = 'active';
-        }
-      });
+    removeFromWatchlist: async (id) => {
+      try {
+        await fetchWithAuth(`${API_BASE_URL}/objects/${id}/watchlist`, {
+          method: 'DELETE',
+        });
+        set((state) => {
+          state.watchlist = state.watchlist.filter((w) => w !== id);
+          const obj = state.objects.find((o) => o.id === id);
+          if (obj) {
+            obj.status = 'active';
+          }
+        });
+      } catch (error) {
+        console.error('Error al remover de watchlist', error);
+      }
     },
 
     addTimelineEvent: (objectId, event) => {
+      // Podría llamar a un endpoint POST /objects/:id/timeline
       set((state) => {
         const obj = state.objects.find((o) => o.id === objectId);
         if (obj) {
@@ -455,6 +705,7 @@ export const useObjectStore = create<ObjectStore>()(
           obj.lastSeenAt = new Date();
         }
       });
+      // También podría enviarse al backend
     },
   }))
 );
@@ -466,13 +717,16 @@ interface EventStore {
   events: Event[];
   selectedEvent: Event | null;
   unreadCount: number;
-  setEvents: (events: Event[]) => void;
-  addEvent: (event: Event) => void;
-  updateEvent: (id: string, updates: Partial<Event>) => void;
-  deleteEvent: (id: string) => void;
+  isLoading: boolean;
+  error: string | null;
+  fetchEvents: (filters?: Record<string, any>) => Promise<void>;
+  fetchEventById: (id: string) => Promise<void>;
+  createEvent: (data: Partial<Event>) => Promise<void>;
+  updateEvent: (id: string, updates: Partial<Event>) => Promise<void>;
+  deleteEvent: (id: string) => Promise<void>;
   setSelectedEvent: (event: Event | null) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
+  markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
   getEventsByObject: (objectId: string) => Event[];
   getEventsByMission: (missionId: string) => Event[];
 }
@@ -482,33 +736,135 @@ export const useEventStore = create<EventStore>()(
     events: [],
     selectedEvent: null,
     unreadCount: 0,
+    isLoading: false,
+    error: null,
 
-    setEvents: (events) => {
+    fetchEvents: async (filters = {}) => {
       set((state) => {
-        state.events = events;
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const query = new URLSearchParams(filters).toString();
+        const res = await fetchWithAuth(`${API_BASE_URL}/events?${query}`);
+        if (!res.ok) throw new Error('Error al cargar eventos');
+        const data = await res.json();
+        set((state) => {
+          state.events = data;
+          state.unreadCount = data.filter((e: Event) => !e.verified).length;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
-    addEvent: (event) => {
+    fetchEventById: async (id) => {
       set((state) => {
-        state.events.unshift(event);
-        state.unreadCount++;
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/events/${id}`);
+        if (!res.ok) throw new Error('Error al cargar el evento');
+        const data = await res.json();
+        set((state) => {
+          state.selectedEvent = data;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
-    updateEvent: (id, updates) => {
+    createEvent: async (data) => {
       set((state) => {
-        const evt = state.events.find((e) => e.id === id);
-        if (evt) {
-          Object.assign(evt, updates);
-        }
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/events`, {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Error al crear evento');
+        const newEvent = await res.json();
+        set((state) => {
+          state.events.unshift(newEvent);
+          if (!newEvent.verified) state.unreadCount++;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
-    deleteEvent: (id) => {
+    updateEvent: async (id, updates) => {
       set((state) => {
-        state.events = state.events.filter((e) => e.id !== id);
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/events/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(updates),
+        });
+        if (!res.ok) throw new Error('Error al actualizar evento');
+        const updated = await res.json();
+        set((state) => {
+          const index = state.events.findIndex((e) => e.id === id);
+          if (index !== -1) {
+            const wasUnread = !state.events[index].verified;
+            const isUnread = !updated.verified;
+            if (wasUnread && !isUnread) state.unreadCount--;
+            else if (!wasUnread && isUnread) state.unreadCount++;
+            state.events[index] = updated;
+          }
+          if (state.selectedEvent?.id === id) state.selectedEvent = updated;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
+    },
+
+    deleteEvent: async (id) => {
+      set((state) => {
+        state.isLoading = true;
+        state.error = null;
+      });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/events/${id}`, {
+          method: 'DELETE',
+        });
+        if (!res.ok) throw new Error('Error al eliminar evento');
+        set((state) => {
+          const event = state.events.find((e) => e.id === id);
+          if (event && !event.verified) {
+            state.unreadCount = Math.max(0, state.unreadCount - 1);
+          }
+          state.events = state.events.filter((e) => e.id !== id);
+          if (state.selectedEvent?.id === id) state.selectedEvent = null;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
     setSelectedEvent: (event) => {
@@ -517,23 +873,37 @@ export const useEventStore = create<EventStore>()(
       });
     },
 
-    markAsRead: (id) => {
-      set((state) => {
-        const evt = state.events.find((e) => e.id === id);
-        if (evt && !evt.verified) {
-          evt.verified = true;
-          state.unreadCount = Math.max(0, state.unreadCount - 1);
-        }
-      });
+    markAsRead: async (id) => {
+      try {
+        await fetchWithAuth(`${API_BASE_URL}/events/${id}/read`, {
+          method: 'PATCH',
+        });
+        set((state) => {
+          const evt = state.events.find((e) => e.id === id);
+          if (evt && !evt.verified) {
+            evt.verified = true;
+            state.unreadCount = Math.max(0, state.unreadCount - 1);
+          }
+        });
+      } catch (error) {
+        console.error('Error marcando como leído', error);
+      }
     },
 
-    markAllAsRead: () => {
-      set((state) => {
-        state.events.forEach((e) => {
-          e.verified = true;
+    markAllAsRead: async () => {
+      try {
+        await fetchWithAuth(`${API_BASE_URL}/events/read-all`, {
+          method: 'POST',
         });
-        state.unreadCount = 0;
-      });
+        set((state) => {
+          state.events.forEach((e) => {
+            e.verified = true;
+          });
+          state.unreadCount = 0;
+        });
+      } catch (error) {
+        console.error('Error marcando todos como leídos', error);
+      }
     },
 
     getEventsByObject: (objectId) => {
@@ -547,7 +917,7 @@ export const useEventStore = create<EventStore>()(
 );
 
 // ============================================
-// MAP STORE
+// MAP STORE (la mayoría local, pero puede tener fetch de datos)
 // ============================================
 interface MapStore {
   viewport: MapViewport;
@@ -561,14 +931,16 @@ interface MapStore {
     speed: number;
   };
   mapStyle: string;
+  isLoading: boolean;
+  error: string | null;
   setViewport: (viewport: Partial<MapViewport>) => void;
   setMapStyle: (style: string) => void;
   addLayer: (layer: MapLayer) => void;
   removeLayer: (id: string) => void;
   toggleLayer: (id: string) => void;
-  setTrackingPoints: (points: TrackingPoint[]) => void;
+  fetchTrackingPoints: (objectId?: string, timeRange?: { start: Date; end: Date }) => Promise<void>;
   addTrackingPoint: (point: TrackingPoint) => void;
-  setZones: (zones: GeoZone[]) => void;
+  fetchZones: (missionId?: string) => Promise<void>;
   addZone: (zone: GeoZone) => void;
   setSelectedPoint: (point: TrackingPoint | null) => void;
   setPlaybackState: (state: Partial<MapStore['playbackState']>) => void;
@@ -594,6 +966,8 @@ export const useMapStore = create<MapStore>()(
       speed: 1,
     },
     mapStyle: 'mapbox://styles/mapbox/dark-v11',
+    isLoading: false,
+    error: null,
 
     setViewport: (viewport) => {
       set((state) => {
@@ -628,28 +1002,68 @@ export const useMapStore = create<MapStore>()(
       });
     },
 
-    setTrackingPoints: (points) => {
+    fetchTrackingPoints: async (objectId, timeRange) => {
       set((state) => {
-        state.trackingPoints = points;
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        let url = `${API_BASE_URL}/tracking`;
+        const params = new URLSearchParams();
+        if (objectId) params.append('objectId', objectId);
+        if (timeRange?.start) params.append('start', timeRange.start.toISOString());
+        if (timeRange?.end) params.append('end', timeRange.end.toISOString());
+        if (params.toString()) url += `?${params.toString()}`;
+        const res = await fetchWithAuth(url);
+        if (!res.ok) throw new Error('Error al cargar puntos de seguimiento');
+        const data = await res.json();
+        set((state) => {
+          state.trackingPoints = data;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
     addTrackingPoint: (point) => {
       set((state) => {
         state.trackingPoints.push(point);
       });
+      // Opcional: enviar al backend
     },
 
-    setZones: (zones) => {
+    fetchZones: async (missionId) => {
       set((state) => {
-        state.zones = zones;
+        state.isLoading = true;
+        state.error = null;
       });
+      try {
+        let url = `${API_BASE_URL}/zones`;
+        if (missionId) url += `?missionId=${missionId}`;
+        const res = await fetchWithAuth(url);
+        if (!res.ok) throw new Error('Error al cargar zonas');
+        const data = await res.json();
+        set((state) => {
+          state.zones = data;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
     addZone: (zone) => {
       set((state) => {
         state.zones.push(zone);
       });
+      // Opcional: enviar al backend
     },
 
     setSelectedPoint: (point) => {
@@ -688,6 +1102,9 @@ interface GraphStore {
     edgeTypes: string[];
     showLabels: boolean;
   };
+  isLoading: boolean;
+  error: string | null;
+  fetchGraphData: (filters?: Record<string, any>) => Promise<void>;
   setGraphData: (data: GraphData) => void;
   addNode: (node: any) => void;
   addEdge: (edge: any) => void;
@@ -713,6 +1130,30 @@ export const useGraphStore = create<GraphStore>()(
       nodeTypes: [],
       edgeTypes: [],
       showLabels: true,
+    },
+    isLoading: false,
+    error: null,
+
+    fetchGraphData: async (filters = {}) => {
+      set((state) => {
+        state.isLoading = true;
+        state.error = null;
+      });
+      try {
+        const query = new URLSearchParams(filters).toString();
+        const res = await fetchWithAuth(`${API_BASE_URL}/graph?${query}`);
+        if (!res.ok) throw new Error('Error al cargar datos del grafo');
+        const data = await res.json();
+        set((state) => {
+          state.graphData = data;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
     },
 
     setGraphData: (data) => {
@@ -767,12 +1208,13 @@ export const useGraphStore = create<GraphStore>()(
     },
 
     expandNode: (id) => {
-      // Would fetch related nodes from API
+      // Podría llamar a un endpoint para obtener más nodos relacionados
+      console.log('Expand node', id);
     },
 
     collapseNode: (id) => {
       set((state) => {
-        // Remove child nodes
+        // Remove child nodes (simulación)
         const childEdges = state.graphData.edges.filter((e) => e.source === id);
         const childIds = childEdges.map((e) => e.target);
         state.graphData.nodes = state.graphData.nodes.filter(
@@ -842,7 +1284,7 @@ interface SearchStore {
 }
 
 export const useSearchStore = create<SearchStore>()(
-  immer((set) => ({
+  immer((set, get) => ({
     query: '',
     results: [],
     isSearching: false,
@@ -858,22 +1300,46 @@ export const useSearchStore = create<SearchStore>()(
     },
 
     search: async (query) => {
+      if (!query || query.trim().length < 2) {
+        set((state) => {
+          state.results = [];
+          state.isSearching = false;
+        });
+        return;
+      }
       set((state) => {
         state.isSearching = true;
         state.query = query;
       });
 
-      // Mock search - would call API
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      try {
+        const params = new URLSearchParams({ q: query });
+        // Añadir filtros si existen
+        const { filters } = get();
+        if (filters.types?.length) params.append('types', filters.types.join(','));
+        if (filters.dateRange?.start) params.append('start', filters.dateRange.start.toISOString());
+        if (filters.dateRange?.end) params.append('end', filters.dateRange.end.toISOString());
+        if (filters.missions?.length) params.append('missions', filters.missions.join(','));
+        if (filters.tags?.length) params.append('tags', filters.tags.join(','));
+        if (filters.confidence) params.append('confidence', filters.confidence.toString());
 
-      set((state) => {
-        state.isSearching = false;
-        state.results = []; // Would be populated from API
-        if (query) {
+        const res = await fetchWithAuth(`${API_BASE_URL}/search?${params.toString()}`);
+        if (!res.ok) throw new Error('Error en la búsqueda');
+        const data = await res.json();
+
+        set((state) => {
+          state.isSearching = false;
+          state.results = data;
           state.recentSearches.unshift(query);
           state.recentSearches = state.recentSearches.slice(0, 10);
-        }
-      });
+        });
+      } catch (error) {
+        console.error('Search error:', error);
+        set((state) => {
+          state.isSearching = false;
+          state.results = [];
+        });
+      }
     },
 
     clearSearch: () => {
@@ -913,11 +1379,14 @@ interface NotificationStore {
   notifications: Notification[];
   unreadCount: number;
   showPanel: boolean;
+  isLoading: boolean;
+  error: string | null;
+  fetchNotifications: () => Promise<void>;
   addNotification: (notification: Notification) => void;
-  removeNotification: (id: string) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
-  clearAll: () => void;
+  removeNotification: (id: string) => Promise<void>;
+  markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  clearAll: () => Promise<void>;
   togglePanel: () => void;
   setShowPanel: (show: boolean) => void;
 }
@@ -927,6 +1396,30 @@ export const useNotificationStore = create<NotificationStore>()(
     notifications: [],
     unreadCount: 0,
     showPanel: false,
+    isLoading: false,
+    error: null,
+
+    fetchNotifications: async () => {
+      set((state) => {
+        state.isLoading = true;
+        state.error = null;
+      });
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/notifications`);
+        if (!res.ok) throw new Error('Error al cargar notificaciones');
+        const data = await res.json();
+        set((state) => {
+          state.notifications = data.notifications || [];
+          state.unreadCount = data.unreadCount || 0;
+          state.isLoading = false;
+        });
+      } catch (error: any) {
+        set((state) => {
+          state.error = error.message;
+          state.isLoading = false;
+        });
+      }
+    },
 
     addNotification: (notification) => {
       set((state) => {
@@ -937,42 +1430,70 @@ export const useNotificationStore = create<NotificationStore>()(
       });
     },
 
-    removeNotification: (id) => {
-      set((state) => {
-        const idx = state.notifications.findIndex((n) => n.id === id);
-        if (idx > -1) {
-          if (!state.notifications[idx].read) {
+    removeNotification: async (id) => {
+      try {
+        await fetchWithAuth(`${API_BASE_URL}/notifications/${id}`, {
+          method: 'DELETE',
+        });
+        set((state) => {
+          const idx = state.notifications.findIndex((n) => n.id === id);
+          if (idx > -1) {
+            if (!state.notifications[idx].read) {
+              state.unreadCount = Math.max(0, state.unreadCount - 1);
+            }
+            state.notifications.splice(idx, 1);
+          }
+        });
+      } catch (error) {
+        console.error('Error removing notification', error);
+      }
+    },
+
+    markAsRead: async (id) => {
+      try {
+        await fetchWithAuth(`${API_BASE_URL}/notifications/${id}/read`, {
+          method: 'PATCH',
+        });
+        set((state) => {
+          const notif = state.notifications.find((n) => n.id === id);
+          if (notif && !notif.read) {
+            notif.read = true;
             state.unreadCount = Math.max(0, state.unreadCount - 1);
           }
-          state.notifications.splice(idx, 1);
-        }
-      });
-    },
-
-    markAsRead: (id) => {
-      set((state) => {
-        const notif = state.notifications.find((n) => n.id === id);
-        if (notif && !notif.read) {
-          notif.read = true;
-          state.unreadCount = Math.max(0, state.unreadCount - 1);
-        }
-      });
-    },
-
-    markAllAsRead: () => {
-      set((state) => {
-        state.notifications.forEach((n) => {
-          n.read = true;
         });
-        state.unreadCount = 0;
-      });
+      } catch (error) {
+        console.error('Error marking as read', error);
+      }
     },
 
-    clearAll: () => {
-      set((state) => {
-        state.notifications = [];
-        state.unreadCount = 0;
-      });
+    markAllAsRead: async () => {
+      try {
+        await fetchWithAuth(`${API_BASE_URL}/notifications/read-all`, {
+          method: 'POST',
+        });
+        set((state) => {
+          state.notifications.forEach((n) => {
+            n.read = true;
+          });
+          state.unreadCount = 0;
+        });
+      } catch (error) {
+        console.error('Error marking all as read', error);
+      }
+    },
+
+    clearAll: async () => {
+      try {
+        await fetchWithAuth(`${API_BASE_URL}/notifications`, {
+          method: 'DELETE',
+        });
+        set((state) => {
+          state.notifications = [];
+          state.unreadCount = 0;
+        });
+      } catch (error) {
+        console.error('Error clearing all notifications', error);
+      }
     },
 
     togglePanel: () => {
@@ -990,7 +1511,7 @@ export const useNotificationStore = create<NotificationStore>()(
 );
 
 // ============================================
-// LAYOUT STORE
+// LAYOUT STORE (sin cambios, solo local)
 // ============================================
 interface LayoutStore {
   sidebarCollapsed: boolean;
@@ -1072,7 +1593,7 @@ export const useLayoutStore = create<LayoutStore>()(
 );
 
 // ============================================
-// WEBSOCKET STORE
+// WEBSOCKET STORE (placeholder, sin cambios)
 // ============================================
 interface WebSocketStore {
   connected: boolean;
