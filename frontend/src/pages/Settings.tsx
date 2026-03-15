@@ -242,7 +242,10 @@ export default function SettingsPage() {
                   <Label className="mb-3 block">Theme</Label>
                   <div className="grid grid-cols-3 gap-4">
                     <button
-                      onClick={() => setTheme('light')}
+                      onClick={() => {
+                        console.log('🎨 Setting theme to light');
+                        setTheme('light');
+                      }}
                       className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
                         theme === 'light' ? 'border-primary bg-primary/5' : 'border-border hover:bg-secondary'
                       }`}
@@ -251,7 +254,10 @@ export default function SettingsPage() {
                       <span className="text-sm">Light</span>
                     </button>
                     <button
-                      onClick={() => setTheme('dark')}
+                      onClick={() => {
+                        console.log('🎨 Setting theme to dark');
+                        setTheme('dark');
+                      }}
                       className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
                         theme === 'dark' ? 'border-primary bg-primary/5' : 'border-border hover:bg-secondary'
                       }`}
@@ -260,7 +266,10 @@ export default function SettingsPage() {
                       <span className="text-sm">Dark</span>
                     </button>
                     <button
-                      onClick={() => setTheme('system')}
+                      onClick={() => {
+                        console.log('🎨 Setting theme to system');
+                        setTheme('system');
+                      }}
                       className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
                         theme === 'system' ? 'border-primary bg-primary/5' : 'border-border hover:bg-secondary'
                       }`}

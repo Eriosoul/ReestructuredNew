@@ -1,6 +1,7 @@
 from utils.database import mongo
 from werkzeug.security import generate_password_hash, check_password_hash
 from bson import ObjectId
+from datetime import datetime
 
 class User:
     collection = mongo.db.users

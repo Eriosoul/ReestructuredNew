@@ -93,24 +93,57 @@ function App() {
   const [showNotifications, setShowNotifications] = useState(false);
   
   const { user, isAuthenticated, logout } = useAuthStore();
-  const { sidebarCollapsed, toggleSidebar } = useLayoutStore();
+  const { sidebarCollapsed, toggleSidebar, theme } = useLayoutStore();
   const { unreadCount } = useNotificationStore();
   const { filters } = useFilterStore();
 
-  // Initialize mock data
+  // ===== APLICAR TEMA =====
+  useEffect(() => {
+    console.log('🎨 Theme effect - theme actual:', theme);
+    const root = document.documentElement;
+    
+    // Primero, eliminar la clase dark si existe
+    root.classList.remove('dark');
+    
+    if (theme === 'dark') {
+      root.classList.add('dark');
+      console.log('   → Modo oscuro activado');
+    } else if (theme === 'light') {
+      // No añadir clase dark (modo claro)
+      console.log('   → Modo claro activado');
+    } else if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const applySystemTheme = (e: MediaQueryListEvent | MediaQueryList) => {
+        if (e.matches) {
+          root.classList.add('dark');
+          console.log('   → Sistema: modo oscuro');
+        } else {
+          root.classList.remove('dark');
+          console.log('   → Sistema: modo claro');
+        }
+      };
+      applySystemTheme(mediaQuery);
+      mediaQuery.addEventListener('change', applySystemTheme);
+      return () => mediaQuery.removeEventListener('change', applySystemTheme);
+    }
+  }, [theme]);
+
+  // ===== CARGAR DATOS MOCK (sin llamadas a API) =====
   useEffect(() => {
     if (isAuthenticated) {
-      useMissionStore.getState().setMissions(mockMissions);
-      useObjectStore.getState().setObjects(mockObjects);
-      useEventStore.getState().setEvents(mockEvents);
-      mockNotifications.forEach(n => useNotificationStore.getState().addNotification(n));
+      // Usar setState directamente para cargar datos mock
+      useMissionStore.setState({ missions: mockMissions });
+      useObjectStore.setState({ objects: mockObjects });
+      useEventStore.setState({ events: mockEvents });
+      useNotificationStore.setState({ notifications: mockNotifications, unreadCount: mockNotifications.filter(n => !n.read).length });
+      
       toast.success('Welcome to IntelOps Platform', {
         description: 'All systems operational. Data loaded successfully.',
       });
     }
   }, [isAuthenticated]);
 
-  // Keyboard shortcuts
+  // ===== KEYBOARD SHORTCUTS =====
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey) {
@@ -317,7 +350,7 @@ function App() {
               {/* Right Actions */}
               <div className="flex items-center gap-2">
                 {/* Global Filter Indicator */}
-                {(filters.missions.length > 0 || filters.objectTypes.length > 0 || filters.timeRange.start) && (
+                {(filters.missions?.length > 0 || filters.objectTypes?.length > 0 || filters.timeRange?.start) && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -327,7 +360,7 @@ function App() {
                     <Filter className="w-4 h-4" />
                     <span className="text-xs">Filters Active</span>
                     <Badge variant="secondary" className="text-xs ml-1">
-                      {filters.missions.length + filters.objectTypes.length + (filters.timeRange.start ? 1 : 0)}
+                      {(filters.missions?.length || 0) + (filters.objectTypes?.length || 0) + (filters.timeRange?.start ? 1 : 0)}
                     </Badge>
                   </Button>
                 )}
