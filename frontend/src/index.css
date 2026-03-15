@@ -1,0 +1,409 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark Intelligence Dashboard Theme */
+    --background: 220 20% 8%;
+    --foreground: 210 20% 95%;
+    --card: 220 18% 10%;
+    --card-foreground: 210 20% 95%;
+    --popover: 220 18% 10%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 210 20% 95%;
+    --muted: 220 15% 18%;
+    --muted-foreground: 210 15% 60%;
+    --accent: 210 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 15% 18%;
+    --input: 220 15% 15%;
+    --ring: 210 100% 50%;
+    --radius: 0.5rem;
+    
+    /* Custom Intelligence Colors */
+    --intel-critical: 0 80% 55%;
+    --intel-high: 25 90% 55%;
+    --intel-medium: 45 90% 50%;
+    --intel-low: 140 60% 45%;
+    --intel-info: 210 100% 50%;
+    
+    /* Map Colors */
+    --map-bg: 220 25% 5%;
+    --map-water: 210 50% 15%;
+    --map-land: 220 15% 12%;
+    --map-border: 220 20% 20%;
+    
+    /* Sidebar */
+    --sidebar-background: 220 18% 6%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 210 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 12%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 220 15% 15%;
+    --sidebar-ring: 210 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  /* Intelligence Dashboard Panels */
+  .intel-panel {
+    @apply bg-card/80 backdrop-blur-sm border border-border rounded-lg;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  }
+  
+  .intel-panel-header {
+    @apply flex items-center justify-between px-4 py-3 border-b border-border;
+  }
+  
+  .intel-panel-title {
+    @apply text-sm font-semibold text-foreground flex items-center gap-2;
+  }
+  
+  .intel-panel-content {
+    @apply p-4;
+  }
+  
+  /* Status Badges */
+  .badge-critical {
+    @apply px-2 py-0.5 text-xs font-medium rounded-full;
+    background: hsl(var(--intel-critical) / 0.2);
+    color: hsl(var(--intel-critical));
+    border: 1px solid hsl(var(--intel-critical) / 0.3);
+  }
+  
+  .badge-high {
+    @apply px-2 py-0.5 text-xs font-medium rounded-full;
+    background: hsl(var(--intel-high) / 0.2);
+    color: hsl(var(--intel-high));
+    border: 1px solid hsl(var(--intel-high) / 0.3);
+  }
+  
+  .badge-medium {
+    @apply px-2 py-0.5 text-xs font-medium rounded-full;
+    background: hsl(var(--intel-medium) / 0.2);
+    color: hsl(var(--intel-medium));
+    border: 1px solid hsl(var(--intel-medium) / 0.3);
+  }
+  
+  .badge-low {
+    @apply px-2 py-0.5 text-xs font-medium rounded-full;
+    background: hsl(var(--intel-low) / 0.2);
+    color: hsl(var(--intel-low));
+    border: 1px solid hsl(var(--intel-low) / 0.3);
+  }
+  
+  .badge-info {
+    @apply px-2 py-0.5 text-xs font-medium rounded-full;
+    background: hsl(var(--intel-info) / 0.2);
+    color: hsl(var(--intel-info));
+    border: 1px solid hsl(var(--intel-info) / 0.3);
+  }
+  
+  /* Data Table Styles */
+  .intel-table {
+    @apply w-full text-sm;
+  }
+  
+  .intel-table th {
+    @apply px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border;
+  }
+  
+  .intel-table td {
+    @apply px-4 py-3 border-b border-border/50;
+  }
+  
+  .intel-table tr:hover td {
+    @apply bg-secondary/50;
+  }
+  
+  /* Map Overlay Controls */
+  .map-control {
+    @apply bg-card/90 backdrop-blur-sm border border-border rounded-md p-2;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  
+  /* Timeline Styles */
+  .timeline-item {
+    @apply relative pl-8 pb-6;
+  }
+  
+  .timeline-item::before {
+    content: '';
+    @apply absolute left-3 top-2 w-2 h-2 rounded-full bg-primary;
+  }
+  
+  .timeline-item::after {
+    content: '';
+    @apply absolute left-[14px] top-4 w-px h-full bg-border;
+  }
+  
+  .timeline-item:last-child::after {
+    @apply hidden;
+  }
+  
+  /* Graph Node Styles */
+  .graph-node {
+    @apply cursor-pointer transition-all duration-200;
+  }
+  
+  .graph-node:hover {
+    filter: brightness(1.2);
+    transform: scale(1.05);
+  }
+  
+  /* Scrollbar Styles */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+  
+  /* Loading States */
+  .skeleton {
+    @apply animate-pulse bg-muted rounded;
+  }
+  
+  /* Glass Effect */
+  .glass {
+    @apply bg-card/60 backdrop-blur-md border border-border/50;
+  }
+  
+  /* Glow Effects */
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+  
+  .glow-critical {
+    box-shadow: 0 0 20px hsl(var(--intel-critical) / 0.3);
+  }
+  
+  /* Grid Pattern Background */
+  .grid-pattern {
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  /* Animated Border */
+  @keyframes border-pulse {
+    0%, 100% { border-color: hsl(var(--primary) / 0.5); }
+    50% { border-color: hsl(var(--primary) / 1); }
+  }
+  
+  .animated-border {
+    animation: border-pulse 2s ease-in-out infinite;
+  }
+  
+  /* Pulse Animation for Live Data */
+  @keyframes live-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  .live-indicator {
+    @apply w-2 h-2 rounded-full bg-green-500;
+    animation: live-pulse 1.5s ease-in-out infinite;
+  }
+  
+  /* Card Hover Effect */
+  .card-hover {
+    @apply transition-all duration-300;
+  }
+  
+  .card-hover:hover {
+    @apply -translate-y-0.5;
+    box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.4);
+  }
+  
+  /* Filter Chip */
+  .filter-chip {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-secondary border border-border;
+  }
+  
+  .filter-chip.active {
+    @apply bg-primary/20 border-primary/50 text-primary;
+  }
+  
+  /* Metric Card */
+  .metric-card {
+    @apply p-4 rounded-lg bg-card border border-border;
+  }
+  
+  .metric-value {
+    @apply text-2xl font-bold text-foreground;
+  }
+  
+  .metric-label {
+    @apply text-xs text-muted-foreground uppercase tracking-wide;
+  }
+  
+  .metric-change {
+    @apply text-xs font-medium;
+  }
+  
+  .metric-change.positive {
+    @apply text-green-500;
+  }
+  
+  .metric-change.negative {
+    @apply text-red-500;
+  }
+}
+
+@layer utilities {
+  /* Text Utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Animation Utilities */
+  .animate-in {
+    animation: animateIn 0.2s ease-out;
+  }
+  
+  @keyframes animateIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .animate-slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+  }
+  
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  /* Focus Utilities */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background;
+  }
+  
+  /* Truncate Utilities */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+/* Mapbox Custom Styles */
+.mapboxgl-map {
+  @apply rounded-lg;
+}
+
+.mapboxgl-popup-content {
+  @apply bg-card text-foreground border border-border rounded-lg p-3;
+}
+
+.mapboxgl-popup-tip {
+  @apply border-t-card;
+}
+
+/* React Flow Custom Styles */
+.react-flow__node {
+  @apply border-0;
+}
+
+.react-flow__edge-path {
+  stroke-width: 2;
+}
+
+.react-flow__controls {
+  @apply map-control;
+}
+
+.react-flow__controls-button {
+  @apply bg-transparent border-0 text-foreground hover:bg-secondary;
+}
+
+/* Recharts Custom Styles */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: hsl(var(--border));
+}
+
+.recharts-text {
+  fill: hsl(var(--muted-foreground));
+}
+
+/* Command Palette */
+[cmdk-root] {
+  @apply bg-card border border-border rounded-lg shadow-2xl;
+}
+
+[cmdk-input] {
+  @apply bg-transparent border-0 text-foreground placeholder:text-muted-foreground;
+}
+
+[cmdk-item] {
+  @apply text-foreground hover:bg-secondary cursor-pointer;
+}
+
+[cmdk-group-heading] {
+  @apply text-muted-foreground text-xs uppercase;
+}
