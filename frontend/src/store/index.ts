@@ -310,6 +310,7 @@ export const useFilterStore = create<FilterStore>()(
 // MISSION STORE
 // ============================================
 interface MissionStore {
+  setMissions(mockMissions: Mission[]): unknown;
   missions: Mission[];
   activeMission: Mission | null;
   selectedMissions: string[];
@@ -493,6 +494,7 @@ export const useMissionStore = create<MissionStore>()(
 // OBJECT STORE
 // ============================================
 interface ObjectStore {
+  setObjects(mockObjects: TargetObject[]): unknown;
   objects: TargetObject[];
   selectedObject: TargetObject | null;
   watchlist: string[];
@@ -714,6 +716,7 @@ export const useObjectStore = create<ObjectStore>()(
 // EVENT STORE
 // ============================================
 interface EventStore {
+  setEvents(mockEvents: Event[]): unknown;
   events: Event[];
   selectedEvent: Event | null;
   unreadCount: number;
@@ -1376,6 +1379,7 @@ export const useSearchStore = create<SearchStore>()(
 // NOTIFICATION STORE
 // ============================================
 interface NotificationStore {
+  setNotifications(mockNotifications: Notification[]): unknown;
   notifications: Notification[];
   unreadCount: number;
   showPanel: boolean;
