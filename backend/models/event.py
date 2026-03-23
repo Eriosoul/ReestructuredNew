@@ -1,29 +1,33 @@
-from utils.database import mongo
 from bson import ObjectId
 from datetime import datetime
+from utils.database import mongo
 
 class Event:
-    collection = mongo.db.events
+
+    @staticmethod
+    def get_collection():
+        return mongo.db.events
 
     @staticmethod
     def create(data):
         data['timestamp'] = data.get('timestamp', datetime.utcnow())
         data['createdAt'] = datetime.utcnow()
         data['updatedAt'] = datetime.utcnow()
-        # Valores por defecto
         if 'verified' not in data:
             data['verified'] = False
         if 'confidence' not in data:
             data['confidence'] = 50
         if 'severity' not in data:
             data['severity'] = 'medium'
-        result = Event.collection.insert_one(data)
+        collection = Event.get_collection()
+        result = collection.insert_one(data)
         data['_id'] = result.inserted_id
         return data
 
     @staticmethod
     def find_all(filter={}):
-        events = list(Event.collection.find(filter).sort('timestamp', -1))
+        collection = Event.get_collection()
+        events = list(collection.find(filter).sort('timestamp', -1))
         for e in events:
             e['id'] = str(e['_id'])
             del e['_id']
@@ -31,7 +35,8 @@ class Event:
 
     @staticmethod
     def find_by_id(event_id):
-        event = Event.collection.find_one({'_id': ObjectId(event_id)})
+        collection = Event.get_collection()
+        event = collection.find_one({'_id': ObjectId(event_id)})
         if event:
             event['id'] = str(event['_id'])
             del event['_id']
@@ -40,7 +45,8 @@ class Event:
     @staticmethod
     def update(event_id, updates):
         updates['updatedAt'] = datetime.utcnow()
-        Event.collection.update_one(
+        collection = Event.get_collection()
+        collection.update_one(
             {'_id': ObjectId(event_id)},
             {'$set': updates}
         )
@@ -48,11 +54,13 @@ class Event:
 
     @staticmethod
     def delete(event_id):
-        Event.collection.delete_one({'_id': ObjectId(event_id)})
+        collection = Event.get_collection()
+        collection.delete_one({'_id': ObjectId(event_id)})
 
     @staticmethod
     def mark_as_read(event_id):
-        Event.collection.update_one(
+        collection = Event.get_collection()
+        collection.update_one(
             {'_id': ObjectId(event_id)},
             {'$set': {'verified': True}}
         )
@@ -64,4 +72,5 @@ class Event:
             filter['missionId'] = mission_id
         if object_id:
             filter['objectIds'] = object_id
-        Event.collection.update_many(filter, {'$set': {'verified': True}})
+        collection = Event.get_collection()
+        collection.update_many(filter, {'$set': {'verified': True}})

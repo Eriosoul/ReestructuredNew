@@ -36,6 +36,7 @@ import {
   Bookmark,
   HelpCircle,
   Keyboard,
+  Ship,
 } from 'lucide-react';
 import { useAuthStore, useMissionStore, useObjectStore } from '@/store';
 import { toast } from 'sonner';
@@ -69,6 +70,7 @@ export default function CommandPalette({ open, onClose, onNavigate }: CommandPal
     { id: 'link-analysis', label: 'Link Analysis', icon: Share2 },
     { id: 'network', label: 'Network Analysis', icon: Network },
     { id: 'settings', label: 'Settings', icon: Settings, shortcut: '⌘,' },
+    { id: 'units', label: 'Units Catalog', icon: Ship, shortcut: '⌘U' }
   ];
 
   const actionCommands = [

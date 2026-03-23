@@ -20,7 +20,9 @@ export const UnitCard: React.FC<UnitCardProps> = ({ unit, onEdit, onDelete }) =>
           <div className="p-2 bg-muted rounded">{UNIT_TYPE_ICONS[unit.type]}</div>
           <div>
             <p className="font-medium">{unit.name}</p>
-            <p className="text-xs text-muted-foreground capitalize">{unit.type} • {unit.country}</p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {unit.type} • {unit.country} {unit.domain && `• ${unit.domain}`}
+            </p>
             <p className="text-xs text-muted-foreground">
               {unit.sensors.length} sensores • {unit.armamento.length} armas • {unit.targets.length} objetivos
             </p>

@@ -1,21 +1,26 @@
-from utils.database import mongo
 from bson import ObjectId
 from datetime import datetime
+from utils.database import mongo
 
 class Relationship:
-    collection = mongo.db.relationships
+
+    @staticmethod
+    def get_collection():
+        return mongo.db.relationships
 
     @staticmethod
     def create(data):
         data['firstObserved'] = data.get('firstObserved', datetime.utcnow())
         data['lastObserved'] = data.get('lastObserved', datetime.utcnow())
-        result = Relationship.collection.insert_one(data)
+        collection = Relationship.get_collection()
+        result = collection.insert_one(data)
         data['_id'] = result.inserted_id
         return data
 
     @staticmethod
     def find_all(filter={}):
-        rels = list(Relationship.collection.find(filter))
+        collection = Relationship.get_collection()
+        rels = list(collection.find(filter))
         for r in rels:
             r['id'] = str(r['_id'])
             del r['_id']
@@ -23,7 +28,8 @@ class Relationship:
 
     @staticmethod
     def find_by_id(rel_id):
-        rel = Relationship.collection.find_one({'_id': ObjectId(rel_id)})
+        collection = Relationship.get_collection()
+        rel = collection.find_one({'_id': ObjectId(rel_id)})
         if rel:
             rel['id'] = str(rel['_id'])
             del rel['_id']
@@ -32,7 +38,8 @@ class Relationship:
     @staticmethod
     def update(rel_id, updates):
         updates['lastObserved'] = datetime.utcnow()
-        Relationship.collection.update_one(
+        collection = Relationship.get_collection()
+        collection.update_one(
             {'_id': ObjectId(rel_id)},
             {'$set': updates}
         )
@@ -40,4 +47,5 @@ class Relationship:
 
     @staticmethod
     def delete(rel_id):
-        Relationship.collection.delete_one({'_id': ObjectId(rel_id)})
+        collection = Relationship.get_collection()
+        collection.delete_one({'_id': ObjectId(rel_id)})

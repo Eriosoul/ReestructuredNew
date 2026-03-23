@@ -1,3 +1,4 @@
+// frontend/App.tsx
 // ============================================
 // INTEL OPS PLATFORM - MAIN APP
 // ============================================
@@ -19,7 +20,8 @@ import {
   LogOut,
   User,
   Filter,
-  Eye
+  Eye,
+  Ship      // <--- AÑADIDO: Icono para Units
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +56,7 @@ import DashboardPage from '@/pages/Dashboard';
 import MissionsPage from '@/pages/Missions';
 import MapPage from '@/pages/Map';
 import ObjectsPage from '@/pages/Objects';
+import UnitsPage from '@/pages/Units';          // <--- NUEVA PÁGINA
 import SearchPage from '@/pages/Search';
 import PredictionsPage from '@/pages/Predictions';
 import LinkAnalysisPage from '@/pages/LinkAnalysis';
@@ -66,7 +69,8 @@ import CommandPalette from '@/components/CommandPalette';
 import NotificationPanel from '@/components/NotificationPanel';
 import LoginForm from '@/components/LoginForm';
 
-type PageType = 'dashboard' | 'missions' | 'map' | 'objects' | 'search' | 'predictions' | 'link-analysis' | 'network' | 'settings';
+// Definir tipo para las páginas (incluye 'units')
+type PageType = 'dashboard' | 'missions' | 'map' | 'objects' | 'search' | 'predictions' | 'link-analysis' | 'network' | 'settings' | 'units' | 'hostile';
 
 interface NavItem {
   id: PageType;
@@ -75,11 +79,14 @@ interface NavItem {
   badge?: number;
 }
 
+// Lista de navegación (con la nueva entrada para Units)
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'missions', label: 'Missions', icon: Target, badge: 2 },
   { id: 'map', label: 'Map Tracking', icon: Map },
   { id: 'objects', label: 'Objects', icon: Eye, badge: 3 },
+  { id: 'units', label: 'Units Catalog', icon: Ship },          // <--- NUEVO
+  { id: 'hostile', label: 'Units Catalog', icon: Ship },          // <--- NUEVO
   { id: 'search', label: 'Intelligence Search', icon: Search },
   { id: 'predictions', label: 'Predictions', icon: Brain },
   { id: 'link-analysis', label: 'Link Analysis', icon: Share2 },
@@ -183,6 +190,10 @@ function App() {
         return <MapPage />;
       case 'objects':
         return <ObjectsPage />;
+      case 'units':                       // <--- NUEVA PÁGINA
+        return <UnitsPage />;
+      case 'hostile':
+        return <HostilePage />
       case 'search':
         return <SearchPage />;
       case 'predictions':
@@ -455,7 +466,7 @@ function App() {
   );
 }
 
-// Dropdown Menu Components
+// Dropdown Menu Components (necesarios para el menú de usuario)
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -464,5 +475,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import HostilePage from './pages/Hostiles';
 
 export default App;

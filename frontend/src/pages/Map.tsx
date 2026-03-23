@@ -6,19 +6,21 @@ import { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-  Map as MapIcon,
   Layers,
   Target,
   Filter,
   Crosshair,
   Maximize2,
   Minimize2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMapStore, useObjectStore } from '@/store';
 import { format } from 'date-fns';
+import { createCustomMarker, getStatusColor, getStatusClass } from '@/components/map/MapMarkers';
 
 // Fix para los iconos de Leaflet (necesario en muchos entornos)
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -36,8 +38,8 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 // Capas base gratuitas (sin token)
 const baseLayers = [
-  { id: 'osm', name: 'Calles', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap' },
   { id: 'satellite', name: 'Satélite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution: '© Esri' },
+  { id: 'osm', name: 'Calles', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap' },
   { id: 'dark', name: 'Oscuro', url: 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', attribution: '© Stadia Maps' },
   { id: 'streets', name: 'Relieve', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', attribution: '© OpenTopoMap' },
 ];
@@ -48,7 +50,8 @@ export default function MapPage() {
   const markersRef = useRef<L.Marker[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedBaseLayer, setSelectedBaseLayer] = useState(baseLayers[0].url);
-  
+  const [isObjectsMinimized, setIsObjectsMinimized] = useState(false);
+
   const { viewport, setViewport } = useMapStore();
   const { objects, isLoading: objectsLoading } = useObjectStore();
 
@@ -56,25 +59,21 @@ export default function MapPage() {
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    // IMPORTANTE: desactivamos el control de zoom por defecto para evitar duplicados
     map.current = L.map(mapContainer.current, {
       zoomControl: false,
-      attributionControl: false, // opcional, para más limpieza
+      attributionControl: false,
     }).setView(
       [viewport.latitude, viewport.longitude],
       viewport.zoom
     );
 
-    // Capa base inicial
     L.tileLayer(selectedBaseLayer, {
       attribution: baseLayers[0].attribution,
       maxZoom: 19,
     }).addTo(map.current);
 
-    // Añadimos nuestro propio control de zoom (solo uno, en la esquina superior derecha)
     L.control.zoom({ position: 'topright' }).addTo(map.current);
 
-    // Sincronizar cambios de vista con el store
     map.current.on('moveend', () => {
       if (map.current) {
         const center = map.current.getCenter();
@@ -92,18 +91,16 @@ export default function MapPage() {
       map.current?.remove();
       map.current = null;
     };
-  }, []); // Solo al montar
+  }, []);
 
   // Cambiar capa base cuando el usuario selecciona otra
   useEffect(() => {
     if (!map.current) return;
-    // Eliminar la capa base anterior (asumimos que es la única TileLayer)
     map.current.eachLayer((layer) => {
       if (layer instanceof L.TileLayer) {
         map.current?.removeLayer(layer);
       }
     });
-    // Añadir nueva capa
     const selected = baseLayers.find(l => l.url === selectedBaseLayer) || baseLayers[0];
     L.tileLayer(selectedBaseLayer, {
       attribution: selected.attribution,
@@ -111,26 +108,58 @@ export default function MapPage() {
     }).addTo(map.current);
   }, [selectedBaseLayer]);
 
-  // Actualizar marcadores cuando cambian los objetos
+  // Actualizar marcadores cuando cambian los objetos (AHORA CON ICONOS PERSONALIZADOS)
   useEffect(() => {
     if (!map.current || !objects) return;
 
-    // Eliminar marcadores anteriores
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
-    // Crear nuevos marcadores
     objects.forEach((obj) => {
       if (obj.lastKnownLocation) {
+        // Crear icono personalizado basado en tipo y estado
+        const customIcon = createCustomMarker(
+          obj.type || 'default',
+          obj.status || 'normal',
+          obj.confidence || 50
+        );
+
         const popupContent = `
-          <b>${obj.name}</b><br>
-          Tipo: ${obj.type}<br>
-          Último avistamiento: ${obj.lastSeenAt ? format(new Date(obj.lastSeenAt), 'HH:mm dd/MM') : 'Desconocido'}<br>
-          Confianza: ${obj.confidence}%
+          <div class="p-3 min-w-[200px]">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-bold text-lg">${obj.name}</h3>
+              <span class="px-2 py-1 rounded-full text-xs ${getStatusClass(obj.status)}">
+                ${obj.status || 'normal'}
+              </span>
+            </div>
+            <p class="text-sm text-muted-foreground mb-1">Tipo: ${obj.type || 'Desconocido'}</p>
+            <p class="text-sm text-muted-foreground mb-2">
+              Último avistamiento: ${obj.lastSeenAt ? format(new Date(obj.lastSeenAt), 'HH:mm dd/MM/yyyy') : 'Desconocido'}
+            </p>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-medium">Confianza:</span>
+              <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  class="h-full bg-blue-500" 
+                  style="width: ${obj.confidence || 0}%"
+                ></div>
+              </div>
+              <span class="text-xs font-mono">${obj.confidence || 0}%</span>
+            </div>
+          </div>
         `;
-        const marker = L.marker([obj.lastKnownLocation.lat, obj.lastKnownLocation.lng])
+
+        const marker = L.marker(
+          [obj.lastKnownLocation.lat, obj.lastKnownLocation.lng],
+          { 
+            icon: customIcon,
+            riseOnHover: true,
+            zIndexOffset: obj.status === 'watchlisted' ? 1000 : 0
+          }
+        )
           .bindPopup(popupContent)
           .addTo(map.current!);
+
         markersRef.current.push(marker);
       }
     });
@@ -144,12 +173,9 @@ export default function MapPage() {
     <div className={`relative w-full overflow-hidden rounded-xl border border-border ${
       isFullscreen ? 'fixed inset-0 z-[100] h-screen' : 'h-[calc(100vh-8rem)]'
     }`}>
-      {/* Contenedor del mapa (z-index bajo) */}
       <div ref={mapContainer} className="absolute inset-0 z-0 bg-slate-950" />
 
-      {/* Controles superpuestos (z-index alto) */}
       <div className="absolute inset-0 z-10 pointer-events-none p-4 flex flex-col justify-between">
-        
         {/* Fila superior: contador y selector de capas */}
         <div className="flex justify-between items-start">
           <div className="flex flex-col gap-2 pointer-events-auto">
@@ -170,7 +196,7 @@ export default function MapPage() {
             </Button>
           </div>
 
-          {/* Selector de capas (swapper) */}
+          {/* Selector de capas */}
           <div className="flex items-center gap-2 pointer-events-auto bg-background/80 backdrop-blur-md p-1.5 rounded-lg border border-border shadow-xl">
             <Layers className="w-4 h-4 ml-2 text-muted-foreground" />
             <select
@@ -211,16 +237,39 @@ export default function MapPage() {
             </Card>
           </div>
 
-          {/* Lista de objetos (flotante a la derecha, con margen para no tapar el zoom) */}
+          {/* Lista de objetos (ahora usa getStatusColor para los colores) */}
           <div className="pointer-events-auto mb-2 mr-12">
-            <Card className="glass w-64 max-h-[400px] overflow-hidden">
-              <CardHeader className="p-3">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Target className="w-4 h-4" />
-                  Objetos Rastreados
-                </CardTitle>
+            <Card className="glass w-64 overflow-hidden transition-all duration-300 ease-in-out">
+              <CardHeader
+                className="p-3 cursor-pointer hover:bg-secondary/30 transition-colors"
+                onClick={() => setIsObjectsMinimized(!isObjectsMinimized)}
+              >
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="w-4 h-4" />
+                    Objetos Rastreados ({objects.filter(o => o.lastKnownLocation).length})
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsObjectsMinimized(!isObjectsMinimized);
+                    }}
+                  >
+                    {isObjectsMinimized ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronUp className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </CardHeader>
-              <div className="overflow-y-auto max-h-[320px]">
+
+              <div className={`overflow-y-auto transition-all duration-300 ease-in-out ${
+                isObjectsMinimized ? 'max-h-0' : 'max-h-[320px]'
+              }`}>
                 {objects.filter(o => o.lastKnownLocation).map(obj => (
                   <div
                     key={obj.id}
@@ -228,12 +277,9 @@ export default function MapPage() {
                     className="p-3 border-t border-border/50 hover:bg-secondary/50 cursor-pointer transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <span 
+                      <span
                         className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ 
-                          backgroundColor: obj.status === 'watchlisted' ? '#ef4444' : 
-                                          obj.status === 'flagged' ? '#f59e0b' : '#3b82f6'
-                        }}
+                        style={{ backgroundColor: getStatusColor(obj.status) }}
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{obj.name}</p>

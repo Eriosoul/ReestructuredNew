@@ -183,10 +183,9 @@ export const UnitEditor: React.FC<UnitEditorProps> = ({ unit, onChange, onClose,
 
           {/* Armamento */}
           <ArmamentSelector
-            unitType={unit.type}
-            selected={unit.armamento}
-            onChange={(arm) => updateField('armamento', arm)}
-          />
+              armamento={unit.armamento} // ← aquí se pasa el armamento real
+              onChange={(arm) => updateField('armamento', arm)}
+            />
 
           {/* Operaciones */}
           <OperationsSelector
@@ -210,13 +209,12 @@ export const UnitEditor: React.FC<UnitEditorProps> = ({ unit, onChange, onClose,
 
       {/* Modales */}
       <SensorConfigModal
-        isOpen={showSensorModal}
-        onClose={() => setShowSensorModal(false)}
-        sensors={unit.sensors}
-        onUpdateSensors={(sensors) => updateField('sensors', sensors)}
-        unitType={unit.type}
-        unitName={unit.name}
-      />
+          isOpen={showSensorModal}
+          onClose={() => setShowSensorModal(false)}
+          sensors={unit.sensors}  // ← aquí se pasan los sensores reales
+          onUpdateSensors={(sensors) => updateField('sensors', sensors)}
+          unitName={unit.name}
+        />
 
       <TargetConfigModal
         isOpen={showTargetModal}

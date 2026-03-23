@@ -253,9 +253,10 @@ export default function LoginForm() {
       <div className="mt-6 p-4 bg-muted/50 rounded-lg">
         <p className="text-xs font-medium text-muted-foreground mb-2">Demo Credentials</p>
         <div className="text-xs text-muted-foreground space-y-1">
-          <p><span className="font-medium">Admin:</span> admin@intelops.com / any password</p>
+          {/*<p><span className="font-medium">Admin:</span> admin@intelops.com / any password</p>
           <p><span className="font-medium">Analyst:</span> analyst@intelops.com / any password</p>
-        </div>
+          */}
+          </div>
       </div>
     </div>
   );

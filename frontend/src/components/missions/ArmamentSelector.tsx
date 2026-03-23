@@ -1,50 +1,55 @@
 // components/missions/ArmamentSelector.tsx
-import React from 'react';
-import { Badge } from '@/components/ui/badge';
+import React, { useState } from 'react';
 import { Label } from '@/components/ui/label';
-import { UNIT_ARMAMENT_CONFIGS, getIcon } from '@/lib/missionConstants';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ArmamentSelectorProps {
-  unitType: 'naval' | 'ground' | 'aerial';
-  selected: string[];
-  onChange: (selected: string[]) => void;
+  armamento: any[]; // Array de objetos de armamento
+  onChange: (armamento: any[]) => void;
 }
 
-export const ArmamentSelector: React.FC<ArmamentSelectorProps> = ({ unitType, selected, onChange }) => {
-  const options = UNIT_ARMAMENT_CONFIGS[unitType] || [];
+export const ArmamentSelector: React.FC<ArmamentSelectorProps> = ({ armamento, onChange }) => {
+  const [localArmamento, setLocalArmamento] = useState<any[]>(() =>
+    armamento.map(a => ({ ...a, enabled: a.enabled !== false }))
+  );
 
-  const toggle = (name: string) => {
-    if (selected.includes(name)) {
-      onChange(selected.filter(n => n !== name));
-    } else {
-      onChange([...selected, name]);
-    }
+  const toggleArmamento = (index: number) => {
+    const updated = [...localArmamento];
+    updated[index].enabled = !updated[index].enabled;
+    setLocalArmamento(updated);
+    onChange(updated);
   };
 
   return (
     <div className="space-y-3">
-      <Label className="text-sm font-medium">Selección de Armamento</Label>
-      <div className="flex flex-wrap gap-2">
-        {options.map((item) => {
-          const isSelected = selected.includes(item.name);
-          return (
-            <Badge
-              key={item.name}
-              variant={isSelected ? 'default' : 'outline'}
-              className="cursor-pointer py-1.5 px-3 flex items-center gap-2 transition-all"
-              onClick={() => toggle(item.name)}
-            >
-              {getIcon(item.icon, 14)}
-              <span>{item.name}</span>
-            </Badge>
-          );
-        })}
-      </div>
-      {options.length === 0 && (
-        <p className="text-xs text-muted-foreground italic">
-          No hay armamento disponible para este tipo de unidad.
-        </p>
-      )}
+      <Label className="text-sm font-medium">Armamento</Label>
+      <ScrollArea className="max-h-60">
+        {localArmamento.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sin armamento</p>
+        ) : (
+          <div className="space-y-2">
+            {localArmamento.map((item, idx) => (
+              <div key={idx} className="flex items-start space-x-2 border rounded p-2">
+                <Checkbox
+                  id={`arm-${idx}`}
+                  checked={item.enabled}
+                  onCheckedChange={() => toggleArmamento(idx)}
+                />
+                <div>
+                  <div className="font-medium">{item.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {item.type} • {item.quantity} uds. • cal. {item.caliber}
+                  </div>
+                  {item.ammunition && (
+                    <div className="text-xs">Munición: {item.ammunition}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
     </div>
   );
 };

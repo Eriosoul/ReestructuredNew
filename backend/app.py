@@ -1,11 +1,22 @@
-# En el archivo donde defines create_app (ej. app.py o __init__.py)
-from flask import Flask
+# backend/app.py
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import Config
-from utils.database import init_db
 
-# Importa los blueprints existentes
+from backend.routes.hosties import hostile_bp
+from utils.database import init_db
+import os
+import logging
+
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Importa los blueprints
 from routes.auth import auth_bp
 from routes.missions import missions_bp
 from routes.objects import objects_bp
@@ -13,21 +24,37 @@ from routes.events import events_bp
 from routes.graph import graph_bp
 from routes.search import search_bp
 from routes.notifications import notifications_bp
-
-# Importa el nuevo blueprint de units
 from routes.units import units_bp
+from routes.upload import upload_bp
+from flask import send_from_directory
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Inicializar extensiones
-    # Ajusta el origen CORS para incluir el puerto de tu frontend Next.js (ej. 3000)
-    CORS(app, origins=["http://localhost:5173", "http://localhost:3000"])  # Agrega el puerto 3000
+    # Configuración CORS
+    logger.info(f"Configurando CORS para orígenes: {Config.CORS_ORIGINS}")
+    CORS(app, origins=Config.CORS_ORIGINS,
+         supports_credentials=True,
+         allow_headers=["Content-Type", "Authorization"])
 
+    # Inicializar JWT
     jwt = JWTManager(app)
-    mongo = init_db(app)  # Esto probablemente guarda la instancia en app.extensions o similar
+    logger.info("JWT inicializado")
+
+    # Inicializar MongoDB con verificación
+    try:
+        mongo = init_db(app)
+        logger.info("✅ MongoDB inicializado correctamente")
+    except Exception as e:
+        logger.error(f"❌ Error inicializando MongoDB: {e}")
+        # La app puede continuar, pero el registro fallará
+
+    # Ruta para servir archivos estáticos
+    @app.route('/assets/<path:filename>')
+    def serve_assets(filename):
+        return send_from_directory('assets', filename)
 
     # Registrar blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -37,17 +64,19 @@ def create_app():
     app.register_blueprint(graph_bp, url_prefix='/api/graph')
     app.register_blueprint(search_bp, url_prefix='/api/search')
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
-
-    # Registrar nuevo blueprint de units
-    app.register_blueprint(units_bp)  # Ya tiene /api/units en su definición
+    app.register_blueprint(units_bp)
+    app.register_blueprint(hostile_bp)
+    app.register_blueprint(upload_bp)
 
     @app.route('/')
     def home():
         return "IntelOps API Running"
+
 
     return app
 
 
 if __name__ == '__main__':
     app = create_app()
+    logger.info("🚀 Servidor Flask iniciado en http://localhost:5000")
     app.run(debug=True, port=5000)

@@ -22,6 +22,7 @@ export interface UnitConfig {
   speed?: string;
   high?: string;
   unitData?: any; // datos brutos de la unidad seleccionada
+  domain?: string;
 }
 
 export interface SelectedTask {

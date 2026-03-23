@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Advanced Mission Control</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: #0b0f14;
+    color: #d7e1ec;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 300px 1fr 300px;
+    height: 100vh;
+}
+
+.panel {
+    padding: 15px;
+    border-right: 1px solid #1f2a36;
+    overflow-y: auto;
+}
+
+.right {
+    border-left: 1px solid #1f2a36;
+}
+
+#map {
+    height: 100%;
+}
+
+.box {
+    background: #111821;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+button {
+    width: 100%;
+    padding: 8px;
+    background: #1e90ff;
+    border: none;
+    color: white;
+    cursor: pointer;
+}
+
+.unit {
+    margin: 5px 0;
+    padding: 5px;
+    background: #0f1620;
+}
+
+.enemy {
+    border-left: 3px solid red;
+}
+
+.log {
+    font-size: 12px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- LEFT -->
+<div class="panel">
+
+<div class="box">
+<h3>Mission</h3>
+<input id="name" placeholder="Operation Name">
+<select id="terrain">
+<option>Urban</option>
+<option>Forest</option>
+<option>Desert</option>
+</select>
+<button onclick="generateMission()">Generate</button>
+</div>
+
+<div class="box">
+<h3>Units</h3>
+<button onclick="addUnit()">+ Add Unit</button>
+<div id="units"></div>
+</div>
+
+<div class="box">
+<h3>AI Simulation</h3>
+<button onclick="autoGenerateEnemies()">Generate Threats</button>
+</div>
+
+</div>
+
+<!-- MAP -->
+<div id="map"></div>
+
+<!-- RIGHT -->
+<div class="panel right">
+
+<div class="box">
+<h3>Drone Feed</h3>
+<p>📡 Live feed (simulated)</p>
+</div>
+
+<div class="box">
+<h3>Intel Log</h3>
+<div id="log" class="log"></div>
+</div>
+
+</div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+// INIT MAP
+const map = L.map('map').setView([40.4168, -3.7038], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+}).addTo(map);
+
+// DATA
+let units = [];
+let enemies = [];
+
+// ICONS
+const blueIcon = L.circleMarker([0,0], {color:'blue'});
+const redIcon = L.circleMarker([0,0], {color:'red'});
+
+// ADD UNIT
+function addUnit() {
+    const lat = 40.41 + (Math.random() - 0.5) * 0.05;
+    const lng = -3.70 + (Math.random() - 0.5) * 0.05;
+
+    const marker = L.marker([lat, lng]).addTo(map);
+
+    units.push({marker, lat, lng});
+
+    document.getElementById("units").innerHTML += `<div class="unit">Unit ${units.length}</div>`;
+    log("Unit deployed");
+}
+
+// ENEMY AI
+function autoGenerateEnemies() {
+    for (let i = 0; i < 3; i++) {
+        const lat = 40.41 + (Math.random() - 0.5) * 0.08;
+        const lng = -3.70 + (Math.random() - 0.5) * 0.08;
+
+        const marker = L.circleMarker([lat, lng], {
+            color: "red",
+            radius: 8
+        }).addTo(map);
+
+        enemies.push({marker, lat, lng});
+    }
+
+    log("Enemy units detected via ISR");
+}
+
+// MOVE UNITS (REAL-TIME SIMULATION)
+setInterval(() => {
+    units.forEach(u => {
+        u.lat += (Math.random() - 0.5) * 0.001;
+        u.lng += (Math.random() - 0.5) * 0.001;
+
+        u.marker.setLatLng([u.lat, u.lng]);
+    });
+
+    enemies.forEach(e => {
+        e.lat += (Math.random() - 0.5) * 0.001;
+        e.lng += (Math.random() - 0.5) * 0.001;
+
+        e.marker.setLatLng([e.lat, e.lng]);
+    });
+
+}, 1000);
+
+// MISSION GENERATOR
+function generateMission() {
+    const name = document.getElementById("name").value;
+    const terrain = document.getElementById("terrain").value;
+
+    log(`Mission ${name} started`);
+    log(`Terrain: ${terrain}`);
+}
+
+// LOG SYSTEM
+function log(text) {
+    const logBox = document.getElementById("log");
+    const time = new Date().toLocaleTimeString();
+
+    logBox.innerHTML += `[${time}] ${text}<br>`;
+    logBox.scrollTop = logBox.scrollHeight;
+}
+
+</script>
+
+</body>
+</html>

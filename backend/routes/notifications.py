@@ -9,7 +9,6 @@ notifications_bp = Blueprint('notifications', __name__)
 def get_notifications():
     user_id = get_jwt_identity()
     notifs = Notification.find_by_user(user_id)
-    # Contar no leídos
     unread = sum(1 for n in notifs if not n['read'])
     return jsonify({
         'notifications': notifs,
