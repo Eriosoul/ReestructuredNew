@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Trash2, X } from 'lucide-react';
+import { Search, Plus, Trash2 } from 'lucide-react';
 
 interface Target {
   id?: number;
@@ -24,6 +24,21 @@ interface Target {
   imo?: string;
   height?: number;
   assigned_sensors?: string[];
+}
+
+interface DbHostile {
+  _id: string;
+  unitId: string;
+  name: string;
+  class: string;
+  country: string;
+  flag: string;
+  type: string;
+  role: string;
+  status: string;
+  sensors?: any[];
+  armament?: any[];
+  domain?: string;
 }
 
 interface TargetConfigModalProps {
@@ -42,7 +57,7 @@ export const TargetConfigModal: React.FC<TargetConfigModalProps> = ({
   const [availableTargets, setAvailableTargets] = useState<Target[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'list' | 'new'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'new' | 'hostile'>('list');
   const [newTarget, setNewTarget] = useState({
     name: '',
     country: '',
@@ -55,12 +70,26 @@ export const TargetConfigModal: React.FC<TargetConfigModalProps> = ({
     height: 0,
   });
 
+  // Estados para los hostiles de la BD
+  const [hostiles, setHostiles] = useState<DbHostile[]>([]);
+  const [hostileSearchTerm, setHostileSearchTerm] = useState('');
+  const [isLoadingHostiles, setIsLoadingHostiles] = useState(false);
+  const [hostileError, setHostileError] = useState<string | null>(null);
+
   const affiliationOptions = ['FRIENDLY', 'NEUTRAL', 'HOSTILE', 'UNKNOWN'];
+  const API_BASE_URL = import.meta.env.VITE_FLASK_API_URL || 'http://localhost:5000';
 
   // Cargar objetivos desde archivos (misma lógica que el original)
   useEffect(() => {
     if (isOpen) loadTargets();
   }, [isOpen]);
+
+  // Cargar hostiles desde el backend cuando se abre la pestaña correspondiente
+  useEffect(() => {
+    if (isOpen && activeTab === 'hostile') {
+      loadHostiles();
+    }
+  }, [isOpen, activeTab]);
 
   useEffect(() => {
     setSelectedTargets(targets || []);
@@ -70,7 +99,6 @@ export const TargetConfigModal: React.FC<TargetConfigModalProps> = ({
     setIsLoading(true);
     try {
       // Intenta cargar desde /data/detections/*.json (ajusta según tu backend)
-      // Esta es la misma lógica que tenías en el TargetConfigModal original
       let targetsData = [];
       try {
         const indexResponse = await fetch('/data/detections/index.json');
@@ -124,9 +152,47 @@ export const TargetConfigModal: React.FC<TargetConfigModalProps> = ({
     }
   };
 
+  const loadHostiles = async () => {
+    setIsLoadingHostiles(true);
+    setHostileError(null);
+    try {
+      const url = `${API_BASE_URL}/api/hostile`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      setHostiles(data);
+    } catch (err) {
+      console.error('Error loading hostiles:', err);
+      setHostileError('Error al cargar hostiles. Verifique la conexión con el backend.');
+    } finally {
+      setIsLoadingHostiles(false);
+    }
+  };
+
   const handleSelectTarget = (target: Target) => {
     if (!selectedTargets.some(t => t.detection_id === target.detection_id || t.id === target.id)) {
       setSelectedTargets([...selectedTargets, target]);
+    }
+  };
+
+  const handleSelectHostile = (dbHostile: DbHostile) => {
+    const newTarget: Target = {
+      id: Date.now(),
+      detection_id: parseInt(dbHostile._id, 36) || Date.now(),
+      name: dbHostile.name,
+      country: dbHostile.country,
+      type: dbHostile.type,
+      affiliation: 'HOSTILE',
+      coordinates: '',
+      lat: undefined,
+      lon: undefined,
+      matricula: '',
+      imo: '',
+      height: 0,
+      assigned_sensors: [],
+    };
+    if (!selectedTargets.some(t => t.detection_id === newTarget.detection_id)) {
+      setSelectedTargets([...selectedTargets, newTarget]);
     }
   };
 
@@ -166,6 +232,12 @@ export const TargetConfigModal: React.FC<TargetConfigModalProps> = ({
     t.type?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const filteredHostiles = hostiles.filter(h =>
+    h.name.toLowerCase().includes(hostileSearchTerm.toLowerCase()) ||
+    h.unitId.toLowerCase().includes(hostileSearchTerm.toLowerCase()) ||
+    h.country.toLowerCase().includes(hostileSearchTerm.toLowerCase())
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh]">
@@ -173,10 +245,11 @@ export const TargetConfigModal: React.FC<TargetConfigModalProps> = ({
           <DialogTitle>Configurar objetivos - {unitName}</DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'list' | 'new')} className="w-full">
-          <TabsList className="grid grid-cols-2">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'list' | 'new' | 'hostile')} className="w-full">
+          <TabsList className="grid grid-cols-3">
             <TabsTrigger value="list">Seleccionar existentes</TabsTrigger>
             <TabsTrigger value="new">Crear nuevo</TabsTrigger>
+            <TabsTrigger value="hostile">Hostiles (BD)</TabsTrigger>
           </TabsList>
 
           <TabsContent value="list" className="space-y-4">
@@ -315,6 +388,56 @@ export const TargetConfigModal: React.FC<TargetConfigModalProps> = ({
                 <Plus className="w-4 h-4 mr-2" /> Crear objetivo y añadir
               </Button>
             </div>
+          </TabsContent>
+
+          <TabsContent value="hostile" className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar hostiles..."
+                className="pl-10"
+                value={hostileSearchTerm}
+                onChange={(e) => setHostileSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {isLoadingHostiles ? (
+              <div className="text-center py-8">Cargando hostiles...</div>
+            ) : hostileError ? (
+              <div className="text-center py-8 text-red-500">{hostileError}</div>
+            ) : (
+              <ScrollArea className="h-64">
+                <div className="space-y-2">
+                  {filteredHostiles.map((hostile) => {
+                    const isSelected = selectedTargets.some(t => t.detection_id === parseInt(hostile._id, 36) || t.name === hostile.name);
+                    return (
+                      <div
+                        key={hostile._id}
+                        className={`p-3 border rounded cursor-pointer transition flex justify-between items-center ${
+                          isSelected ? 'bg-primary/10 border-primary' : 'hover:bg-muted'
+                        }`}
+                        onClick={() => handleSelectHostile(hostile)}
+                      >
+                        <div>
+                          <div className="font-medium flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-red-500" />
+                            {hostile.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {hostile.unitId} · {hostile.type} · {hostile.country}
+                            {hostile.domain && <span> · {hostile.domain}</span>}
+                          </div>
+                        </div>
+                        {isSelected && <Badge>Seleccionado</Badge>}
+                      </div>
+                    );
+                  })}
+                  {filteredHostiles.length === 0 && !isLoadingHostiles && (
+                    <p className="text-center text-muted-foreground">No se encontraron hostiles</p>
+                  )}
+                </div>
+              </ScrollArea>
+            )}
           </TabsContent>
         </Tabs>
 

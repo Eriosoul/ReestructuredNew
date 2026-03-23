@@ -1,12 +1,10 @@
 # backend/app.py
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import Config
-
 from backend.routes.hosties import hostile_bp
 from utils.database import init_db
-import os
 import logging
 
 # Configurar logging
@@ -26,7 +24,7 @@ from routes.search import search_bp
 from routes.notifications import notifications_bp
 from routes.units import units_bp
 from routes.upload import upload_bp
-from flask import send_from_directory
+from backend.routes.operations import operations_bp
 
 
 def create_app():
@@ -43,13 +41,29 @@ def create_app():
     jwt = JWTManager(app)
     logger.info("JWT inicializado")
 
+    # Manejadores de errores JWT (devuelven 401 con mensaje)
+    @jwt.unauthorized_loader
+    def unauthorized_response(callback):
+        return jsonify({'error': 'Missing token'}), 401
+
+    @jwt.invalid_token_loader
+    def invalid_token_response(callback):
+        return jsonify({'error': 'Invalid token'}), 401
+
+    @jwt.expired_token_loader
+    def expired_token_response(callback):
+        return jsonify({'error': 'Token expired'}), 401
+
+    @jwt.revoked_token_loader
+    def revoked_token_response(callback):
+        return jsonify({'error': 'Token revoked'}), 401
+
     # Inicializar MongoDB con verificación
     try:
         mongo = init_db(app)
         logger.info("✅ MongoDB inicializado correctamente")
     except Exception as e:
         logger.error(f"❌ Error inicializando MongoDB: {e}")
-        # La app puede continuar, pero el registro fallará
 
     # Ruta para servir archivos estáticos
     @app.route('/assets/<path:filename>')
@@ -59,6 +73,7 @@ def create_app():
     # Registrar blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(missions_bp, url_prefix='/api/missions')
+    app.register_blueprint(operations_bp, url_prefix='/api/operations')
     app.register_blueprint(objects_bp, url_prefix='/api/objects')
     app.register_blueprint(events_bp, url_prefix='/api/events')
     app.register_blueprint(graph_bp, url_prefix='/api/graph')
@@ -71,7 +86,6 @@ def create_app():
     @app.route('/')
     def home():
         return "IntelOps API Running"
-
 
     return app
 

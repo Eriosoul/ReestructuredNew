@@ -1,5 +1,4 @@
 // types/mission.ts
-import { Mission as BaseMission } from '@/store/missionStore'; // Ajusta la ruta
 
 export interface SensorConfig {
   type: string;
@@ -21,7 +20,7 @@ export interface UnitConfig {
   actual_trayectory?: { lat: number; lon: number };
   speed?: string;
   high?: string;
-  unitData?: any; // datos brutos de la unidad seleccionada
+  unitData?: any;
   domain?: string;
 }
 
@@ -39,9 +38,47 @@ export interface SelectedTask {
   icon?: React.ReactNode;
 }
 
-export interface Mission extends BaseMission {
+export interface Mission {
+  id: string;
+  name: string;
+  description: string;
+  status: 'active' | 'pending' | 'completed' | 'archived';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  startDate: Date;
+  endDate?: Date;
+  createdBy: string;
+  assignedUsers?: string[];
+  objects?: string[];
+  tags?: string[];
+  color?: string;
   units?: UnitConfig[];
   tasks?: SelectedTask[];
   coords?: string;
   video_feed?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  activityLog?: Array<{
+    timestamp: Date;
+    user: string;
+    action: string;
+    details: string;
+  }>;
+  notes?: string[];
+}
+
+export interface Operation {
+  _id: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'pending' | 'completed' | 'archived';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  startDate: Date;
+  endDate?: Date;
+  createdBy: string;
+  assignedUsers?: string[];
+  tags?: string[];
+  color?: string;
+  missions?: any[];
+  createdAt: Date;
+  updatedAt: Date;
 }

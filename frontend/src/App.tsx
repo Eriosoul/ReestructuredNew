@@ -68,9 +68,10 @@ import GlobalFilters from '@/components/GlobalFilters';
 import CommandPalette from '@/components/CommandPalette';
 import NotificationPanel from '@/components/NotificationPanel';
 import LoginForm from '@/components/LoginForm';
+import OperationsPage from './pages/Operations';
 
 // Definir tipo para las páginas (incluye 'units')
-type PageType = 'dashboard' | 'missions' | 'map' | 'objects' | 'search' | 'predictions' | 'link-analysis' | 'network' | 'settings' | 'units' | 'hostile';
+type PageType = 'dashboard' | 'missions' | 'map' | 'objects' | 'search' | 'predictions' | 'link-analysis' | 'network' | 'settings'| 'operation' | 'units' | 'hostile';
 
 interface NavItem {
   id: PageType;
@@ -82,6 +83,7 @@ interface NavItem {
 // Lista de navegación (con la nueva entrada para Units)
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'operation', label: 'Operations', icon: Target, badge: 2 },
   { id: 'missions', label: 'Missions', icon: Target, badge: 2 },
   { id: 'map', label: 'Map Tracking', icon: Map },
   { id: 'objects', label: 'Objects', icon: Eye, badge: 3 },
@@ -184,6 +186,8 @@ function App() {
     switch (currentPage) {
       case 'dashboard':
         return <DashboardPage />;
+      case 'operation':
+        return <OperationsPage />;
       case 'missions':
         return <MissionsPage />;
       case 'map':

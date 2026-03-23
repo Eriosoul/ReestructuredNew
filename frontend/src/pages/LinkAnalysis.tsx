@@ -216,7 +216,7 @@ export default function LinkAnalysisPage() {
         </ReactFlow>
       </div>
 
-      {/* Sidebar */}
+      {/*  */}
       <div className="w-80 space-y-4">
         {/* Selected Node Info */}
         <Card>

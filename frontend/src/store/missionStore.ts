@@ -1,6 +1,6 @@
 // store/missionStore.ts
 import { create } from 'zustand';
-import type { export Mission } from '@/types/mission';
+import type { Mission } from '@/types/mission';
 
 interface MissionStore {
   missions: Mission[];

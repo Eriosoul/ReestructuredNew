@@ -82,13 +82,25 @@ export const useAuthStore = create<AuthStore>()(
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Error al iniciar sesión');
+          
+          // 🔍 LOG: mostrar la respuesta completa del servidor
+          console.log('📥 Respuesta login:', data);
+          
+          // ⚠️ Ajusta aquí según el nombre del campo que devuelve tu backend
+          // Posibles nombres: 'token', 'access_token', 'accessToken'
+          const token = data.token || data.access_token || data.accessToken;
+          if (!token) {
+            throw new Error('El servidor no devolvió un token de autenticación');
+          }
+          
           set((state) => {
             state.user = data.user;
-            state.token = data.token;
+            state.token = token;
             state.isAuthenticated = true;
             state.isLoading = false;
           });
         } catch (error: any) {
+          console.error('❌ Error en login:', error);
           set((state) => {
             state.isLoading = false;
             state.error = error.message;
@@ -98,7 +110,6 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: () => {
-        // Opcional: llamar a un endpoint de logout si es necesario
         set((state) => {
           state.user = null;
           state.isAuthenticated = false;
@@ -119,9 +130,13 @@ export const useAuthStore = create<AuthStore>()(
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Error al registrar');
+          
+          const token = data.token || data.access_token || data.accessToken;
+          if (!token) throw new Error('El servidor no devolvió un token');
+          
           set((state) => {
             state.user = data.user;
-            state.token = data.token;
+            state.token = token;
             state.isAuthenticated = true;
             state.isLoading = false;
           });
@@ -469,8 +484,6 @@ export const useMissionStore = create<MissionStore>()(
     },
 
     addActivityLog: (missionId, entry) => {
-      // Podría llamar a un endpoint POST /missions/:id/activity-log
-      // Por ahora actualización optimista local
       set((state) => {
         const mission = state.missions.find((m) => m.id === missionId);
         if (mission) {
@@ -508,7 +521,7 @@ interface ObjectStore {
   setSelectedObject: (object: TargetObject | null) => void;
   addToWatchlist: (id: string) => Promise<void>;
   removeFromWatchlist: (id: string) => Promise<void>;
-  addTimelineEvent: (objectId: string, event: any) => void; // Podría ser una llamada API
+  addTimelineEvent: (objectId: string, event: any) => void;
   addPrediction: (objectId: string, prediction: Prediction) => void;
   updateLastLocation: (objectId: string, location: any) => void;
 }
@@ -644,7 +657,6 @@ export const useObjectStore = create<ObjectStore>()(
     },
 
     addToWatchlist: async (id) => {
-      // Llamar a un endpoint para añadir a watchlist, por ejemplo POST /objects/:id/watch
       try {
         await fetchWithAuth(`${API_BASE_URL}/objects/${id}/watchlist`, {
           method: 'POST',
@@ -681,7 +693,6 @@ export const useObjectStore = create<ObjectStore>()(
     },
 
     addTimelineEvent: (objectId, event) => {
-      // Podría llamar a un endpoint POST /objects/:id/timeline
       set((state) => {
         const obj = state.objects.find((o) => o.id === objectId);
         if (obj) {
@@ -707,7 +718,6 @@ export const useObjectStore = create<ObjectStore>()(
           obj.lastSeenAt = new Date();
         }
       });
-      // También podría enviarse al backend
     },
   }))
 );
@@ -920,7 +930,7 @@ export const useEventStore = create<EventStore>()(
 );
 
 // ============================================
-// MAP STORE (la mayoría local, pero puede tener fetch de datos)
+// MAP STORE
 // ============================================
 interface MapStore {
   viewport: MapViewport;
@@ -1036,7 +1046,6 @@ export const useMapStore = create<MapStore>()(
       set((state) => {
         state.trackingPoints.push(point);
       });
-      // Opcional: enviar al backend
     },
 
     fetchZones: async (missionId) => {
@@ -1066,7 +1075,6 @@ export const useMapStore = create<MapStore>()(
       set((state) => {
         state.zones.push(zone);
       });
-      // Opcional: enviar al backend
     },
 
     setSelectedPoint: (point) => {
@@ -1211,13 +1219,11 @@ export const useGraphStore = create<GraphStore>()(
     },
 
     expandNode: (id) => {
-      // Podría llamar a un endpoint para obtener más nodos relacionados
       console.log('Expand node', id);
     },
 
     collapseNode: (id) => {
       set((state) => {
-        // Remove child nodes (simulación)
         const childEdges = state.graphData.edges.filter((e) => e.source === id);
         const childIds = childEdges.map((e) => e.target);
         state.graphData.nodes = state.graphData.nodes.filter(
@@ -1230,7 +1236,6 @@ export const useGraphStore = create<GraphStore>()(
     },
 
     findPath: (source, target) => {
-      // BFS path finding
       const { edges } = get().graphData;
       const adj: Record<string, string[]> = {};
       edges.forEach((e) => {
@@ -1317,7 +1322,6 @@ export const useSearchStore = create<SearchStore>()(
 
       try {
         const params = new URLSearchParams({ q: query });
-        // Añadir filtros si existen
         const { filters } = get();
         if (filters.types?.length) params.append('types', filters.types.join(','));
         if (filters.dateRange?.start) params.append('start', filters.dateRange.start.toISOString());
@@ -1515,7 +1519,7 @@ export const useNotificationStore = create<NotificationStore>()(
 );
 
 // ============================================
-// LAYOUT STORE (sin cambios, solo local)
+// LAYOUT STORE
 // ============================================
 interface LayoutStore {
   sidebarCollapsed: boolean;
@@ -1597,7 +1601,7 @@ export const useLayoutStore = create<LayoutStore>()(
 );
 
 // ============================================
-// WEBSOCKET STORE (placeholder, sin cambios)
+// WEBSOCKET STORE (placeholder)
 // ============================================
 interface WebSocketStore {
   connected: boolean;
@@ -1624,7 +1628,6 @@ export const useWebSocketStore = create<WebSocketStore>()(
       set((state) => {
         state.connected = true;
       });
-      // Would establish WebSocket connection
     },
 
     disconnect: () => {
