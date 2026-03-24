@@ -1,1 +1,2 @@
 npm install react-leaflet leaflet.markercluster
+npm install react-resizable-panels

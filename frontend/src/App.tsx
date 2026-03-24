@@ -4,24 +4,25 @@
 // ============================================
 
 import { useState, useEffect } from 'react';
-import { 
-  Shield, 
-  LayoutDashboard, 
-  Map, 
-  Target, 
-  Search, 
-  Brain, 
-  Share2, 
-  Network, 
-  Settings, 
-  Bell, 
+import {
+  Shield,
+  LayoutDashboard,
+  Map,
+  Target,
+  Search,
+  Brain,
+  Share2,
+  Network,
+  Settings,
+  Bell,
   Command,
   ChevronRight,
   LogOut,
   User,
   Filter,
   Eye,
-  Ship      // <--- AÑADIDO: Icono para Units
+  Ship,      // <--- AÑADIDO: Icono para Units
+  HomeIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,9 +34,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 
 // Store hooks
-import { 
-  useAuthStore, 
-  useLayoutStore, 
+import {
+  useAuthStore,
+  useLayoutStore,
   useNotificationStore,
   useFilterStore,
   useMissionStore,
@@ -44,10 +45,10 @@ import {
 } from '@/store';
 
 // Mock data
-import { 
-  mockMissions, 
-  mockObjects, 
-  mockEvents, 
+import {
+  mockMissions,
+  mockObjects,
+  mockEvents,
   mockNotifications
 } from '@/data/mockData';
 
@@ -70,8 +71,9 @@ import NotificationPanel from '@/components/NotificationPanel';
 import LoginForm from '@/components/LoginForm';
 import OperationsPage from './pages/Operations';
 
+
 // Definir tipo para las páginas (incluye 'units')
-type PageType = 'dashboard' | 'missions' | 'map' | 'objects' | 'search' | 'predictions' | 'link-analysis' | 'network' | 'settings'| 'operation' | 'units' | 'hostile';
+type PageType = 'dashboard' | 'missions' | 'map' | 'objects' | 'search' | 'predictions' | 'link-analysis' | 'network' | 'settings' | 'operation' | 'units' | 'hostile' | 'command';
 
 interface NavItem {
   id: PageType;
@@ -82,8 +84,8 @@ interface NavItem {
 
 // Lista de navegación (con la nueva entrada para Units)
 const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'operation', label: 'Operations', icon: Target, badge: 2 },
+  { id: 'dashboard', label: 'Dashboard', icon: HomeIcon },
+  { id: 'operation', label: 'Operations', icon: LayoutDashboard, badge: 2 },
   { id: 'missions', label: 'Missions', icon: Target, badge: 2 },
   { id: 'map', label: 'Map Tracking', icon: Map },
   { id: 'objects', label: 'Objects', icon: Eye, badge: 3 },
@@ -100,7 +102,7 @@ function App() {
   const [showFilters, setShowFilters] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  
+
   const { user, isAuthenticated, logout } = useAuthStore();
   const { sidebarCollapsed, toggleSidebar, theme } = useLayoutStore();
   const { unreadCount } = useNotificationStore();
@@ -110,10 +112,10 @@ function App() {
   useEffect(() => {
     console.log('🎨 Theme effect - theme actual:', theme);
     const root = document.documentElement;
-    
+
     // Primero, eliminar la clase dark si existe
     root.classList.remove('dark');
-    
+
     if (theme === 'dark') {
       root.classList.add('dark');
       console.log('   → Modo oscuro activado');
@@ -145,7 +147,7 @@ function App() {
       useObjectStore.setState({ objects: mockObjects });
       useEventStore.setState({ events: mockEvents });
       useNotificationStore.setState({ notifications: mockNotifications, unreadCount: mockNotifications.filter(n => !n.read).length });
-      
+
       toast.success('Welcome to IntelOps Platform', {
         description: 'All systems operational. Data loaded successfully.',
       });
@@ -194,7 +196,7 @@ function App() {
         return <MapPage />;
       case 'objects':
         return <ObjectsPage />;
-      case 'units':                       // <--- NUEVA PÁGINA
+      case 'units':                      
         return <UnitsPage />;
       case 'hostile':
         return <HostilePage />
@@ -234,10 +236,9 @@ function App() {
     <TooltipProvider delayDuration={0}>
       <div className="min-h-screen bg-background flex">
         {/* Sidebar */}
-        <aside 
-          className={`fixed left-0 top-0 h-full bg-sidebar border-r border-sidebar-border z-40 transition-all duration-300 ${
-            sidebarCollapsed ? 'w-16' : 'w-64'
-          }`}
+        <aside
+          className={`fixed left-0 top-0 h-full bg-sidebar border-r border-sidebar-border z-40 transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'
+            }`}
         >
           {/* Logo */}
           <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
@@ -262,11 +263,10 @@ function App() {
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => setCurrentPage(item.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${
-                        currentPage === item.id
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${currentPage === item.id
                           ? 'bg-sidebar-primary text-sidebar-primary-foreground'
                           : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                      }`}
+                        }`}
                     >
                       <item.icon className="w-5 h-5 flex-shrink-0" />
                       {!sidebarCollapsed && (
@@ -451,8 +451,8 @@ function App() {
         </Dialog>
 
         {/* Command Palette */}
-        <CommandPalette 
-          open={showCommandPalette} 
+        <CommandPalette
+          open={showCommandPalette}
           onClose={() => setShowCommandPalette(false)}
           onNavigate={(page) => {
             setCurrentPage(page as PageType);
@@ -461,9 +461,9 @@ function App() {
         />
 
         {/* Notification Panel */}
-        <NotificationPanel 
-          open={showNotifications} 
-          onClose={() => setShowNotifications(false)} 
+        <NotificationPanel
+          open={showNotifications}
+          onClose={() => setShowNotifications(false)}
         />
       </div>
     </TooltipProvider>
